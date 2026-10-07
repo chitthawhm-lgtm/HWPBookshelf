@@ -1,7 +1,27 @@
 from telethon import TelegramClient, events
 import json
 import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
+# အခမဲ့ Web Service အတွက် Port အတု ဖွင့်ပေးမည့် Code
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running 24/7!")
+
+def run_web_server():
+    server_address = ('', 10000)
+    httpd = HTTPServer(server_address, SimpleHandler)
+    httpd.serve_forever()
+
+# Web Server ကို Background မှာ သီးသန့် အလုပ်လုပ်ခိုင်းရန်
+server_thread = threading.Thread(target=run_web_server)
+server_thread.daemon = True
+server_thread.start()
+
+# Telegram Bot Logic
 api_id = 38901632
 api_hash = 'efbda4d3465299fa86eebba3abcbd70f'
 channel_username = '@HWP_Bookshelf'
@@ -36,7 +56,7 @@ async def my_event_handler(event):
             print(f"📚 စာအုပ်အသစ် တွေ့ရှိပြီး သိမ်းပြီးပါပြီ: {message.file.name}")
 
 async def main():
-    print("🔄 Cloud Server ပေါ်တွင် Telegram Channel ကို စောင့်ဆိုင်းနေပါပြီ...")
+    print("🔄 Render Free Web Service ပေါ်တွင် Telegram Bot စတင်အလုပ်လုပ်နေပါပြီ...")
 
 with client:
     client.loop.run_until_complete(main())
