@@ -30,7 +30,7 @@ def run_web_server():
     httpd = HTTPServer(server_address, SimpleHandler)
     httpd.serve_forever()
 
-# Web Server ကို နောက်ကွယ်မှ အမြဲအလုပ်လုပ်နေစေရန် Thread ဖြင့် Run ခြင်း
+# Web Server ကို နောက်ကွယ်မှ အမြဲအလုပ်လုပ်နေစေရန် Run ခြင်း
 server_thread = threading.Thread(target=run_web_server)
 server_thread.daemon = True
 server_thread.start()
@@ -41,26 +41,7 @@ channel_username = '@HWP_Bookshelf'
 
 client = TelegramClient('ebook_session', api_id, api_hash)
 
-async def scan_existing_books():
-    books_list = []
-    print("🔍 Channel ထဲရှိ စာအုပ်များကို စတင်စကန်ဖတ်နေပါပြီ...")
-    async for message in client.iter_messages(channel_username):
-        if message.file and message.file.name:
-            if message.file.name.lower().endswith(('.pdf', '.epub')):
-                download_link = f"https://t.me/HWP_Bookshelf/{message.id}"
-                book_info = {
-                    "file_name": message.file.name,
-                    "message_id": message.id,
-                    "file_size": message.file.size,
-                    "download_link": download_link
-                }
-                if not any(b['message_id'] == book_info['message_id'] for b in books_list):
-                    books_list.append(book_info)
-                    
-    with open('books.json', 'w', encoding='utf-8') as f:
-        json.dump(books_list, f, ensure_ascii=False, indent=4)
-    print(f"📚 စုစုပေါင်း စာအုပ် {len(books_list)} အုပ်ကို books.json သို့ သိမ်းဆည်းပြီးပါပြီ။")
-
+# စာအုပ်အသစ်အဝင်ကို စောင့်ဖမ်းပြီး books.json ထဲသို့ တိုက်ရိုက်ထည့်မည့် ပုံစံ
 @client.on(events.NewMessage(chats=channel_username))
 async def my_event_handler(event):
     message = event.message
@@ -91,7 +72,9 @@ async def my_event_handler(event):
 
 async def main():
     print("🔄 Telegram Bot စတင်အလုပ်လုပ်နေပါပြီ...")
-    await scan_existing_books()
+    if not os.path.exists('books.json'):
+        with open('books.json', 'w', encoding='utf-8') as f:
+            json.dump([], f)
 
 with client:
     client.loop.run_until_complete(main())
