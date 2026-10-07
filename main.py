@@ -4,12 +4,16 @@ import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# အခမဲ့ Web Service အတွက် Port အတု ဖွင့်ပေးမည့် Code
+# အခမဲ့ Web Service အတွက် Port နှင့် Request များကို ဖြေရှင်းပေးမည့် Code
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is running 24/7!")
+        
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
 
 def run_web_server():
     server_address = ('', 10000)
