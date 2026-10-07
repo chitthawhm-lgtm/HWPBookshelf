@@ -1,6 +1,3 @@
 fastapi
 uvicorn
 telethon
-pyaes
-rsa
-pyasn1
