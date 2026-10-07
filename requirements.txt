@@ -4,4 +4,3 @@ telethon
 pyaes
 rsa
 pyasn1
-httpx
