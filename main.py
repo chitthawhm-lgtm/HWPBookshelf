@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
-from telethon import TelegramClient
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 import json
 import os
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 import asyncio
 import uvicorn
 
@@ -12,9 +13,11 @@ api_id = 38901632
 api_hash = 'efbda4d3465299fa86eebba3abcbd70f'
 channel_username = '@HWP_Bookshelf'
 
-client = TelegramClient('ebook_session', api_id, api_hash)
+# Render Environment Variable ထဲမှ SESSION_STRING ကို ယူသုံးခြင်း (Logout မဖြစ်စေရန်)
+session_string = os.getenv('SESSION_STRING', '')
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# Bot စတင်ချိန်တွင် စာအုပ်ဟောင်းများကို စကန်ဖတ်၍ books.json ဖန်တီးခြင်း
+# Channel ထဲတွင် ရှိသမျှ စာအုပ်ဟောင်းများကို အစအဆုံး အရင်စကန်ဖတ်မည့် ဖန်ရှင်
 async def scan_all_existing_books():
     books_list = []
     print("🔍 Channel ထဲရှိ စာအုပ်အားလုံးကို စတင်စကန်ဖတ်နေပါပြီ...")
@@ -22,7 +25,6 @@ async def scan_all_existing_books():
     async for message in client.iter_messages(channel_username):
         if message.file and message.file.name:
             if message.file.name.lower().endswith(('.pdf', '.epub')):
-                # proxy download link အဖြစ် ပြောင်းလဲပေးခြင်း
                 download_link = f"https://hwpbookshelf-1.onrender.com/download/{message.id}"
                 book_info = {
                     "file_name": message.file.name,
@@ -37,14 +39,14 @@ async def scan_all_existing_books():
     
     with open('books.json', 'w', encoding='utf-8') as f:
         json.dump(books_list, f, ensure_ascii=False, indent=4)
-    print(f"📚 စုစုပေါင်း စာအုပ် {len(books_list)} အုပ်ကို books.json သို့ သိမ်းဆည်းပြီးပါပြီ။")
+    print(f"📚 စုစုပေါင်း စာအုပ် {len(books_list)} အုပ်ကို books.json သို့ အပြည့်အစုံ သိမ်းဆည်းပြီးပါပြီ။")
 
 @app.on_event("startup")
 async def startup_event():
     await client.start()
     await scan_all_existing_books()
     
-    # စာအုပ်အသစ်များ အလိုအလျောက် ဖမ်းယူရန် Background Task ဖြင့် ချိတ်ဆက်ခြင်း
+    # ပြီးနောက် update တက်လာသမျှ (စာအုပ်အသစ်များကိုသာ) ဆက်ဖမ်းမည့် စနစ်
     @client.on(events.NewMessage(chats=channel_username))
     async def my_event_handler(event):
         message = event.message
@@ -97,7 +99,6 @@ async def download_file(message_id: int):
         
         file_name = message.file.name or f"book_{message_id}.pdf"
         
-        # Telethon မှတဆင့် ဖိုင်ကို Chunk များအဖြစ် stream လုပ်ထုတ်ပေးခြင်း
         async def file_streamer():
             async for chunk in client.iter_download(message.media):
                 yield chunk
