@@ -6,7 +6,6 @@ import threading
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # /books.json သို့ ဝင်လာပါက JSON ဖိုင်ကို တိုက်ရိုက်ပြသပေးမည်
         if self.path == '/books.json' or self.path == '/':
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -47,10 +46,13 @@ async def scan_existing_books():
     async for message in client.iter_messages(channel_username):
         if message.file and message.file.name:
             if message.file.name.lower().endswith(('.pdf', '.epub')):
+                # Telegram post link ကို download_link အဖြစ် ထည့်သွင်းခြင်း
+                download_link = f"https://t.me/HWP_Bookshelf/{message.id}"
                 book_info = {
                     "file_name": message.file.name,
                     "message_id": message.id,
-                    "file_size": message.file.size
+                    "file_size": message.file.size,
+                    "download_link": download_link
                 }
                 if book_info not in books_list:
                     books_list.append(book_info)
@@ -64,10 +66,12 @@ async def my_event_handler(event):
     message = event.message
     if message.file and message.file.name:
         if message.file.name.lower().endswith(('.pdf', '.epub')):
+            download_link = f"https://t.me/HWP_Bookshelf/{message.id}"
             new_book = {
                 "file_name": message.file.name,
                 "message_id": message.id,
-                "file_size": message.file.size
+                "file_size": message.file.size,
+                "download_link": download_link
             }
             
             if os.path.exists('books.json'):
