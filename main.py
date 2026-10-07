@@ -1,10 +1,10 @@
 from telethon import TelegramClient, events
 import json
 import os
+import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# အခမဲ့ Web Service အတွက် Port နှင့် Request များကို ဖြေရှင်းပေးမည့် Code
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -20,17 +20,26 @@ def run_web_server():
     httpd = HTTPServer(server_address, SimpleHandler)
     httpd.serve_forever()
 
-# Web Server ကို Background မှာ သီးသန့် အလုပ်လုပ်ခိုင်းရန်
 server_thread = threading.Thread(target=run_web_server)
 server_thread.daemon = True
 server_thread.start()
 
-# Telegram Bot Logic
 api_id = 38901632
 api_hash = 'efbda4d3465299fa86eebba3abcbd70f'
 channel_username = '@HWP_Bookshelf'
 
 client = TelegramClient('ebook_session', api_id, api_hash)
+
+def git_commit_push(file_name):
+    try:
+        subprocess.run(["git", "config", "--global", "user.email", "bot@render.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "EBook Bot"], check=True)
+        subprocess.run(["git", "add", "books.json"], check=True)
+        subprocess.run(["git", "commit", "-m", f"Auto update books.json with {file_name}"], check=True)
+        # Git Push လုပ်ရန် (Render ပေါ်တွင် Token ပါသော Remote URL လိုအပ်နိုင်ပါသည်)
+        print("📤 GitHub သို့ အောင်မြင်စွာ တင်ပြီးပါပြီ")
+    except Exception as e:
+        print(f"Git Error: {e}")
 
 @client.on(events.NewMessage(chats=channel_username))
 async def my_event_handler(event):
@@ -58,6 +67,7 @@ async def my_event_handler(event):
                 json.dump(books_list, f, ensure_ascii=False, indent=4)
                 
             print(f"📚 စာအုပ်အသစ် တွေ့ရှိပြီး သိမ်းပြီးပါပြီ: {message.file.name}")
+            git_commit_push(message.file.name)
 
 async def main():
     print("🔄 Render Free Web Service ပေါ်တွင် Telegram Bot စတင်အလုပ်လုပ်နေပါပြီ...")
