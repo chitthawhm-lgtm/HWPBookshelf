@@ -3,8 +3,9 @@ from telethon.sessions import StringSession
 import json
 import os
 import urllib.parse
+import tempfile
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 import asyncio
 import uvicorn
 
@@ -90,7 +91,7 @@ async def get_books():
 async def root():
     return {"status": "Server is running!"}
 
-# ၂။ ဖိုင်များကို Telegram မှ တိုက်ရိုက် Streaming ဖြင့် ဒေါင်းလုဒ်လုပ်ပေးမည့် Proxy Endpoint (မြန်မာစာနှင့် ဖိုင်ကြီးများအတွက် အထူးပြင်ဆင်ထားသည်)
+# ၂။ ဖိုင်များကို ဆာဗာတွင် ခတ္တသိမ်းဆည်းပြီး PDF ကြီးများပါ "Empty" မဖြစ်စေဘဲ အပြည့်အစုံ ပို့ပေးမည့် Endpoint
 @app.get("/download/{message_id}")
 async def download_file(message_id: int):
     try:
@@ -99,21 +100,20 @@ async def download_file(message_id: int):
             raise HTTPException(status_code=404, detail="File not found")
         
         file_name = message.file.name or f"book_{message_id}.pdf"
-        
-        # မြန်မာစာ ဖိုင်နာမည်များ Header ထဲတွင် Encoding Error မတက်စေရန် စီမံခြင်း
         encoded_filename = urllib.parse.quote(file_name)
         
-        # PDF ဖိုင်ကြီးများ Empty ဖြစ်ခြင်း / Timeout ဖြစ်ခြင်းမှ ကာကွယ်ရန် chunk_size ကို 512KB သို့ တိုးမြှင့်ထားသည်
-        async def file_streamer():
-            async for chunk in client.iter_download(message.media, chunk_size=1024*512):
-                yield chunk
-
+        # Temporary directory တွင် ဖိုင်ကို အရင်အပြည့်အစုံ ဆွဲထုတ်ခြင်း
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.join(temp_dir, file_name)
+        
+        if not os.path.exists(file_path):
+            await client.download_media(message, file_path)
+        
         headers = {
-            'Content-Disposition': f"attachment; filename*=utf-8''{encoded_filename}",
-            'Content-Type': message.file.mime_type or 'application/octet-stream'
+            'Content-Disposition': f"attachment; filename*=utf-8''{encoded_filename}"
         }
         
-        return StreamingResponse(file_streamer(), headers=headers)
+        return FileResponse(file_path, filename=file_name, headers=headers)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
