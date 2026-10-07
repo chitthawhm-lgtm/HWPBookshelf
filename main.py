@@ -3,34 +3,51 @@ from telethon.sessions import StringSession
 import json
 import os
 import asyncio
+import httpx
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
 
 api_id = 38901632
 api_hash = 'efbda4d3465299fa86eebba3abcbd70f'
-# ပေးထားသော Bot Token ကို တိုက်ရိုက်ထည့်သွင်းပေးထားပါသည်
 bot_token = os.getenv('BOT_TOKEN', '8867916581:AAFTY5JeBbxgCINReGfWh7MsSyFetgTv9tg')
 channel_username = '@HWP_Bookshelf'
 
 session_string = os.getenv('SESSION_STRING', '')
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# Channel ထဲရှိ စာအုပ်များကို Telegram Direct Link ဖြင့် စကန်ဖတ်မည့် ဖန်ရှင်
+# Telegram Bot API ကိုသုံးပြီး Direct Link ရယူမည့် Helper Function
+async def get_telegram_direct_link(message):
+    try:
+        if not message.media or not hasattr(message.media, 'document'):
+            return None
+        
+        # Telegram Bot API getFile ကို httpx ဖြင့် လှမ်းခေါ်ခြင်း
+        api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={message.file.id}"
+        
+        async with httpx.AsyncClient() as httpx_client:
+            response = await httpx_client.get(api_url)
+            res_data = response.json()
+            if res_data.get("ok"):
+                file_path = res_data["result"]["file_path"]
+                return f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+    except Exception as e:
+        print(f"Error fetching direct link for message {message.id}: {e}")
+    return None
+
+# Channel ထဲရှိ စာအုပ်များကို စကန်ဖတ်မည့် ဖန်ရှင်
 async def scan_all_existing_books():
     books_list = []
-    print("🔍 Channel ထဲရှိ စာအုပ်များကို Telegram Direct Link ဖြင့် စတင်စကန်ဖတ်နေပါပြီ...")
+    print("🔍 Channel ထဲရှိ စာအုပ်များကို Telegram Bot API Direct Link ဖြင့် စတင်စကန်ဖတ်နေပါပြီ...")
     
     async for message in client.iter_messages(channel_username):
         if message.file and message.file.name:
             if message.file.name.lower().endswith(('.pdf', '.epub')):
-                try:
-                    # Telegram Bot API ဖြင့် တိုက်ရိုက်ဒေါင်းနိုင်သော URL များကို ရယူခြင်း
-                    file_info = await client.get_file(message.media)
-                    download_link = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
-                except Exception as e:
-                    print(f"Error getting file path for {message.file.name}: {e}")
+                download_link = await get_telegram_direct_link(message)
+                
+                # အကယ်၍ Direct Link မရခဲ့ပါက Fallback အနေဖြင့် Render Download Link ကို သုံးမည်
+                if not download_link:
                     download_link = f"https://hwpbookshelf-1.onrender.com/download/{message.id}"
 
                 book_info = {
@@ -58,10 +75,8 @@ async def startup_event():
         message = event.message
         if message.file and message.file.name:
             if message.file.name.lower().endswith(('.pdf', '.epub')):
-                try:
-                    file_info = await client.get_file(message.media)
-                    download_link = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
-                except:
+                download_link = await get_telegram_direct_link(message)
+                if not download_link:
                     download_link = f"https://hwpbookshelf-1.onrender.com/download/{message.id}"
 
                 new_book = {
@@ -97,7 +112,7 @@ async def get_books():
 
 @app.get("/")
 async def root():
-    return {"status": "Server is running with Direct Telegram Links!"}
+    return {"status": "Server is running with Telegram Bot API Direct Links!"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
