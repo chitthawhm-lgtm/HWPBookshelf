@@ -13,7 +13,7 @@ api_id = 38901632
 api_hash = 'efbda4d3465299fa86eebba3abcbd70f'
 channel_username = '@HWP_Bookshelf'
 
-# Render Environment Variable ထဲမှ SESSION_STRING ကို ယူသုံးခြင်း (Logout မဖြစ်စေရန်)
+# Render Environment Variable ထဲမှ SESSION_STRING ကို ယူသုံးခြင်း
 session_string = os.getenv('SESSION_STRING', '')
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
